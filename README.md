@@ -1,2 +1,5 @@
-# Reinforcement-Learning-Based-Optimal-Battery-Control
-Trading Strategy of Energy Storage Stations in Electricity Markets with Incorporation of Intrinsic Electrochemical Mechanisms
+# <p align="center">《市场环境下考虑内在电化学机理的储能电站交易策略研究》</p>
+
+## <p align="center"> —— 基于强化学习的最优电池控制</p>
+
+
