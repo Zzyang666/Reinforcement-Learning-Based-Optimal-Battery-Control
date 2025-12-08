@@ -5,7 +5,7 @@ from gymnasium import spaces
 class CircuitBatteryEnv(gym.Env):
     """
     电池控制环境建模
-    状态空间: [SoC, U1, U2, price, fr_signal】
+    状态空间: [SoC, U1, U2, price, fr_signal]
     动作空间: 11个离散充放电等级
     """
     metadata = {'render.modes': ['human']}
@@ -120,7 +120,8 @@ class CircuitBatteryEnv(gym.Env):
             'fr_penalty': self.step_fr_penalty,
         }
 
-        return self._get_state(), reward, done, False, info
+        # 6. 返回结果(next_state, reward, terminated, truncated, info)
+        return self._get_state(), reward, False, done, info
 
     def _action_to_I(self, action):
         # 线性映射：action 0 → I_min, action 10 → I_max
@@ -143,21 +144,21 @@ class CircuitBatteryEnv(gym.Env):
     def _calculate_reward(self): 
         # 计算当前步的奖励
         self.step_energy_revenue = (self.price_data[self.data_step]) * self.I_t * self.U_t * (1e-6) * (self.timestep / 3600) # 能量成本(I为放电电流)
+
         P_max = self.U_t * self.I_max * (1e-6)  # 最大放电功率(MW)
         self.step_fr_penalty = self.delta * abs(self.fr_data[self.data_step] * P_max - self.I_t * self.U_t * (1e-6)) * (self.timestep / 3600)  # 调频惩罚
+
         self.U_outrange_penalty = self._calculate_U_outrange_penalty()  # 电压越界惩罚
         return self.step_energy_revenue - (self.step_fr_penalty + self.U_outrange_penalty)
     
     def _calculate_U_outrange_penalty(self):
         # 电压越界惩罚
         if self.U_t < self.U_min or self.U_t > self.U_max:
-            return 1000 * abs(min(self.U_t-self.U_min, self.U_t-self.U_max))  # 惩罚值
+            return 1000 * abs(min(self.U_t-self.U_min, self.U_t-self.U_max))
         return 0  # 无惩罚
     
     def _get_OCV_single(self):
         # 通过分段线性计算开路电压OCV   
-        # 查找SOC所在区间索引idx
-        # np.searchsorted返回soc_lut中soc应插入的位置
         idx = np.searchsorted(self.SOC_lut, self.soc_t) - 1
         idx = np.clip(idx, 0, len(self.SOC_lut) - 2)  # 确保不越界
         
@@ -221,8 +222,7 @@ class CircuitBatteryEnv(gym.Env):
         # 调试用,显示各项数值
         print(f"Step: {self.current_step-1}, I: {self.I_t:.4f}, SoC: {self.soc_t:.5f}, OCV:{self.OCV_t:.4f}, U1: {self.U1_t:.4f}, U2: {self.U2_t:.4f}, U: {self.U_t:.4f}, "
               f"Price: {self.price_data[self.data_step-1]:.2f}, FR: {self.fr_data[self.data_step-1]:.4f}, "
-              f"Energy Cost: {self.step_energy_revenue}, "
-              f"FR Penalty: {self.step_fr_penalty}, ")
+              f"Energy Cost: {self.step_energy_revenue}, FR Penalty: {self.step_fr_penalty}, ")
 
     def close(self):
         pass
