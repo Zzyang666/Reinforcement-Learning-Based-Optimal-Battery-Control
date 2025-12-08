@@ -11,7 +11,7 @@ from utils.data_loader import prepare_data
 # 忽略特定警告
 warnings.filterwarnings('ignore', message='Creating a tensor from a list of numpy.ndarrays')
 
-# 添加OpenMP环境变量设置以解决第二个问题
+# 添加OpenMP环境变量设置
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
@@ -31,7 +31,8 @@ device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cp
 # 数据导入&创建环境
 fr_files="data/fr_data/04 2024.xlsx"
 price_files="data/price_data/04 2024.xlsx"
-(price_data, fr_data) = prepare_data(fr_files, price_files, mode="train", point="HB_NORTH", fr_start_date="2024/4/7", price_start_date="2024-04-07")
+(price_data, fr_data) = prepare_data(fr_files, price_files, mode="train", point="HB_NORTH", 
+                                     fr_start_date="2024/4/7", price_start_date="2024-04-07")
 env_name = 'Battery-Trading'
 env = CircuitBatteryEnv(price_data=price_data, fr_data=fr_data, scene='train')
 
@@ -47,20 +48,21 @@ state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.n
 agent = DQN(state_dim, hidden_dims, action_dim, lr, gamma, epsilon, target_update, device)
 
+
+# 主训练循环
 return_list = []
 for i_episode in range(num_episodes):
     episode_return = 0
     state, _ = env.reset(data_head=(i_episode % 7) * episode_steps)
-    terminated = False
-    truncated = False
+    done = False
     
     with tqdm(total=env.n_steps, desc=f'Episode {i_episode+1}/{num_episodes}', ncols=100) as pbar:
-        while not (terminated or truncated):
+        while not done:
             action = agent.take_action(state)
             next_state, reward, terminated, truncated, _ = env.step(action)
             env.render()
             done = terminated or truncated
-            replay_buffer.add(state, action, reward, next_state, done)
+            replay_buffer.add(state, action, reward, next_state, terminated)
             state = next_state
             episode_return += reward
 
@@ -72,7 +74,7 @@ for i_episode in range(num_episodes):
                     'actions': b_a,
                     'next_states': b_ns,
                     'rewards': b_r,
-                    'dones': b_d
+                    'terminateds': b_d
                 }
                 agent.update(transition_dict)
 
