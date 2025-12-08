@@ -1,3 +1,4 @@
+# rl.utils
 import numpy as np
 import torch
 import collections
@@ -8,13 +9,13 @@ class ReplayBuffer:
     def __init__(self, capacity):
         self.buffer = collections.deque(maxlen=capacity) 
 
-    def add(self, state, action, reward, next_state, done): 
-        self.buffer.append((state, action, reward, next_state, done)) 
+    def add(self, state, action, reward, next_state, terminated): 
+        self.buffer.append((state, action, reward, next_state, terminated)) 
 
     def sample(self, batch_size): 
         transitions = random.sample(self.buffer, batch_size)
-        state, action, reward, next_state, done = zip(*transitions)
-        return np.array(state), action, reward, np.array(next_state), done 
+        state, action, reward, next_state, terminated = zip(*transitions)
+        return np.array(state), action, reward, np.array(next_state), terminated 
 
     def size(self): 
         return len(self.buffer)
@@ -62,12 +63,12 @@ class DQN:
         actions = torch.tensor(transition_dict['actions']).view(-1, 1).to(self.device)
         rewards = torch.tensor(transition_dict['rewards'], dtype=torch.float).view(-1, 1).to(self.device)
         next_states = torch.tensor(transition_dict['next_states'], dtype=torch.float).to(self.device)
-        dones = torch.tensor(transition_dict['dones'], dtype=torch.float).view(-1, 1).to(self.device)
+        terminateds = torch.tensor(transition_dict['terminateds'], dtype=torch.float).view(-1, 1).to(self.device)
 
         q_values = self.q_net(states).gather(1, actions)  # Q值
         # 下个状态的最大Q值
         max_next_q_values = self.target_q_net(next_states).max(1)[0].view(-1, 1)
-        q_targets = rewards + self.gamma * max_next_q_values * (1 - dones)  # TD误差目标
+        q_targets = rewards + self.gamma * max_next_q_values * (1 - terminateds)  # TD误差目标
         dqn_loss = torch.mean(F.mse_loss(q_values, q_targets))  # 均方误差损失函数
 
         self.optimizer.zero_grad()  # PyTorch中默认梯度会累积,这里需要显式将梯度置为0
@@ -82,6 +83,7 @@ class DQN:
         self.count += 1
 
 def moving_average(array, window_size):
+    ''' 计算移动平均 '''
     cumulative_sum = np.cumsum(np.insert(array, 0, 0)) 
     middle = (cumulative_sum[window_size:] - cumulative_sum[:-window_size]) / window_size
     r = np.arange(1, window_size-1, 2)
